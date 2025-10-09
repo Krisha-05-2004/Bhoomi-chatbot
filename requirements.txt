@@ -1,0 +1,17 @@
+langchain
+langchain-community
+langchain-core
+faiss-cpu
+sentence-transformers
+transformers
+openai
+tiktoken
+pypdf
+chromadb
+python-dotenv
+streamlit
+fastapi
+uvicorn
+requests
+pandas
+numpy
