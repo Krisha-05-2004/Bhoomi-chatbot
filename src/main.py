@@ -12,7 +12,7 @@ app = Flask(__name__, template_folder="../templates")
 data_path = Path(__file__).parent.parent / "data"
 
 print("⚙️ Loading Bhoomi RAG pipeline...")
-qa_main = build_rag_pipeline(data_path, prompt=MAIN_PROMPT)
+qa_main = build_rag_pipeline(data_path, prompt=MAIN_PROMPT, rebuild=True)
 
 if qa_main:
     print("✅ Bhoomi RAG pipeline ready!")
