@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#a8e6ff" />
+      <stop offset="100%" stop-color="#e6fbeb" />
+    </linearGradient>
+    <linearGradient id="field" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#7ec850" />
+      <stop offset="100%" stop-color="#5aa33a" />
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#sky)" />
+  <g transform="translate(0,160)">
+    <path d="M0,600 C480,420 720,420 1100,600 L1920,600 L1920,1080 L0,1080 Z" fill="url(#field)" />
+    <g transform="translate(120,360)">
+      <rect x="0" y="80" width="160" height="80" fill="#8b5a2b" rx="8" />
+      <rect x="-20" y="-40" width="200" height="120" fill="#c34" rx="8" />
+      <rect x="40" y="0" width="40" height="40" fill="#fff" rx="6" opacity="0.9" />
+    </g>
+    <g transform="translate(420,380)">
+      <ellipse cx="0" cy="0" rx="36" ry="12" fill="#3a8a24" />
+      <rect x="-8" y="-56" width="16" height="56" fill="#6b4a2d" />
+      <circle cx="0" cy="-76" r="28" fill="#2e8b57" />
+    </g>
+    <g transform="translate(860,340)">
+      <rect x="0" y="0" width="220" height="120" fill="#b54" rx="8" />
+      <polygon points="0,0 110,-60 220,0" fill="#c44" />
+      <rect x="160" y="40" width="24" height="40" fill="#fff" rx="4" opacity="0.9" />
+    </g>
+  </g>
+  <g transform="translate(1520,120)">
+    <circle cx="0" cy="0" r="64" fill="#ffd166" />
+  </g>
+  <g opacity="0.9">
+    <rect x="0" y="0" width="100%" height="100%" fill="rgba(255,255,255,0.08)" />
+  </g>
+</svg>

@@ -15,3 +15,5 @@ uvicorn
 requests
 pandas
 numpy
+langdetect
+python-docx

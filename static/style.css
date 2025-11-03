@@ -127,4 +127,98 @@ body {
 .chat-input-form button:hover {
     background-color: #2e7d32;
 }
-    
+.inline-edit {
+  width: 80%;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.icon {
+  cursor: pointer;
+  margin-left: 5px;
+  font-size: 16px;
+  vertical-align: middle;
+}
+
+.text {
+  display: inline-block;
+  max-width: 85%;
+}
+
+.user, .bhoomi {
+  padding: 8px 10px;
+  border-radius: 12px;
+  margin-bottom: 5px;
+}
+
+.user {
+  background-color: #c8e6ff;
+  text-align: right;
+}
+
+.bhoomi {
+  background-color: #e0f7e0;
+  text-align: left;
+}
+
+.thinking {
+  font-style: italic;
+  color: #856404;
+  background-color: #fff3cd;
+  padding: 8px 10px;
+  border-radius: 12px;
+  margin-bottom: 5px;
+}
+.inline-edit {
+  width: 80%;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.icon {
+  cursor: pointer;
+  margin-left: 5px;
+  font-size: 16px;
+  vertical-align: middle;
+}
+
+.text {
+  display: inline-block;
+  max-width: 85%;
+}
+
+.user, .bhoomi {
+  padding: 8px 10px;
+  border-radius: 12px;
+  margin-bottom: 5px;
+}
+
+.user {
+  background-color: #c8e6ff;
+  text-align: right;
+}
+
+.bhoomi {
+  background-color: #e0f7e0;
+  text-align: left;
+}
+
+.thinking {
+  font-style: italic;
+  color: #856404;
+  background-color: #fff3cd;
+  padding: 8px 10px;
+  border-radius: 12px;
+  margin-bottom: 5px;
+}
+
+#question {
+  flex: 1;       /* full width inside input-area */
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}

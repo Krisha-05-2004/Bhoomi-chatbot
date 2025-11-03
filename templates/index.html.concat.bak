@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>🌱 Bhoomi – Smart Farming Companion</title>
+  <style>
+    body{font-family:Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f0f6f0;display:flex;align-items:center;justify-content:center;height:100vh}
+    .overlay{width:680px;height:760px;background:#fff;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,0.08);display:flex;flex-direction:column;overflow:hidden}
+    header{background:#3c9d47;color:#fff;padding:16px 20px;font-size:20px;font-weight:600}
+    #chatbox{flex:1;padding:18px;overflow:auto;background:linear-gradient(#f7fff7,#ffffff)}
+    .bot,.user{margin:12px 0;padding:14px;border-radius:12px;max-width:92%;line-height:1.45}
+    .bot{background:#e6f5e6;align-self:flex-start;font-size:15px}
+    .user{background:#dbeeff;align-self:flex-end}
+    .controls{display:flex;gap:8px;padding:12px;border-top:1px solid #eee;background:#fafafa;align-items:center}
+    select,input[type=text]{padding:10px;border-radius:8px;border:1px solid #ccc}
+    #question{flex:1;min-width:140px}
+    .btn{background:#3c9d47;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer}
+    .icon-btn{background:transparent;border:1px solid #ddd;padding:8px;border-radius:8px;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <header>🌱 Bhoomi – Smart Farming Companion</header>
+    <div id="chatbox">
+      <div class="bot">Hello! I’m <strong>Bhoomi</strong> 🌾<br/>Ask me anything about farming — water, soil, crops, or simple tips.</div>
+    </div>
+    <div class="controls">
+      <select id="lang-select">
+        <option value="en-IN">English</option>
+        <option value="hi-IN">हिन्दी</option>
+        <option value="kn-IN">ಕನ್ನಡ</option>
+        <option value="te-IN">తెలుగు</option>
+      </select>
+      <input id="doc-input" type="file" multiple accept=".pdf,.txt,.docx,.md" />
+      <button id="upload-docs-btn" class="icon-btn">📁</button>
+      <button id="record-btn" class="icon-btn">🎙️</button>
+      <input id="question" type="text" placeholder="Type your question here..." />
+      <button id="send-btn" class="btn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    function addMessage(sender,text){const c=document.getElementById('chatbox');const el=document.createElement('div');el.className=sender;el.innerHTML=(text||'').replace(/\n/g,'<br/>');c.appendChild(el);c.scrollTop=c.scrollHeight}
+    function placeholder(){const c=document.getElementById('chatbox');const el=document.createElement('div');el.className='bot';el.style.fontStyle='italic';el.textContent='Bhoomi is thinking...';c.appendChild(el);c.scrollTop=c.scrollHeight;return el}
+    async function sendMessage(){const q=document.getElementById('question');const t=(q.value||'').trim();if(!t)return;addMessage('user',t);q.value='';const ph=placeholder();try{const lang=document.getElementById('lang-select').value;const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:t,lang})});const j=await r.json();ph.className='bot';ph.innerHTML=(j.answer||j.result||'No answer').replace(/\n/g,'<br/>')}catch(e){ph.className='bot';ph.textContent='⚠️ Error: Unable to reach server.';console.error(e)}}
+    document.getElementById('send-btn').addEventListener('click',sendMessage);document.getElementById('question').addEventListener('keypress',e=>{if(e.key==='Enter')sendMessage()});
+    (function(){const rb=document.getElementById('record-btn');if(!navigator.mediaDevices){rb.style.display='none';return}let mr=null,ch=[];rb.addEventListener('click',async()=>{if(!mr||mr.state==='inactive'){try{const s=await navigator.mediaDevices.getUserMedia({audio:true});mr=new MediaRecorder(s);ch=[];mr.ondataavailable=e=>ch.push(e.data);mr.onstop=async()=>{const blob=new Blob(ch,{type:'audio/webm'});const fd=new FormData();fd.append('audio',blob,'rec.webm');const ph=placeholder();try{const res=await fetch('/transcribe',{method:'POST',body:fd});const data=await res.json();ph.className='bot';ph.innerHTML='Transcription: '+(data.transcript||'');if(data.transcript){document.getElementById('question').value=data.transcript;sendMessage()}}catch(e){ph.className='bot';ph.textContent='⚠️ Transcription failed'}};mr.start();rb.textContent='⏺️'}catch(e){alert('Cannot access microphone')}}else if(mr.state==='recording'){mr.stop();rb.textContent='🎙️'}})})();
+    document.getElementById('upload-docs-btn').addEventListener('click',async()=>{const inp=document.getElementById('doc-input');if(!inp.files||inp.files.length===0){alert('Select files');return}const fd=new FormData();for(let i=0;i<inp.files.length;i++)fd.append('docs',inp.files[i]);const ph=placeholder();try{const res=await fetch('/upload_doc',{method:'POST',body:fd});const j=await res.json();if(j.error)ph.textContent='⚠️ '+(j.error||'Upload failed');else ph.className='bot',ph.innerHTML=(j.summary||'No summary').replace(/\n/g,'<br/>')}catch(e){ph.textContent='⚠️ Upload failed';console.error(e)}});
+  </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🌱 Bhoomi – Smart Farming Companion</title>
+  <style>
+    body { font-family: "Segoe UI", sans-serif; margin:0; height:100vh; display:flex; align-items:center; justify-content:center; background:#f0f6f0; }
+    .overlay { width:640px; max-width:95%; height:760px; background: #fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.08); display:flex; flex-direction:column; overflow:hidden }
+    header { background:#3c9d47; color:#fff; padding:16px 18px; font-size:20px; font-weight:600 }
+    #chatbox { flex:1; padding:18px; overflow:auto; background:linear-gradient(180deg,#f7fff7, #ffffff); }
+    .bot, .user { display:block; clear:both; margin:10px 0; padding:14px 16px; border-radius:12px; line-height:1.45 }
+    .bot { background:#e6f5e6; align-self:flex-start; max-width:92%; font-size:15px }
+    .user { background:#dbeeff; align-self:flex-end; max-width:75%; }
+    .controls-row { display:flex; gap:8px; align-items:center; padding:12px; border-top:1px solid #eee; background:#fafafa }
+    select, input[type=text] { padding:10px; border-radius:8px; border:1px solid #ccc }
+    #question { flex:1; min-width:120px }
+    .btn { background:#3c9d47; color:#fff; border:none; padding:10px 12px; border-radius:8px; cursor:pointer }
+    .small { padding:8px 10px }
+    #doc-input { display:inline-block }
+    .icon-btn { background:transparent; border:1px solid #ddd; padding:8px; border-radius:8px; cursor:pointer }
+    .thinking { font-style:italic; color:#666 }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <header>🌱 Bhoomi – Smart Farming Companion</header>
+    <div id="chatbox">
+      <div class="bot">Hello! I’m <strong>Bhoomi</strong> 🌾<br/>Ask me anything about farming — water, soil, crops, or simple tips.</div>
+    </div>
+
+    <div class="controls-row">
+      <select id="lang-select" title="Language">
+        <option value="en-IN">English</option>
+        <option value="hi-IN">हिन्दी</option>
+        <option value="kn-IN">ಕನ್ನಡ</option>
+        <option value="te-IN">తెలుగు</option>
+      </select>
+
+      <input id="doc-input" type="file" multiple accept=".pdf,.txt,.docx,.md" />
+      <button id="upload-docs-btn" class="icon-btn small">📁 Upload</button>
+
+      <button id="record-btn" class="icon-btn small">🎙️</button>
+
+      <input type="text" id="question" placeholder="Type your question here..." />
+      <button id="send-btn" class="btn">Send</button>
+    </div>
+  </div>
+
+n  <script>
+    // Basic chat functions
+    function addMessage(sender, text) {
+      const chatbox = document.getElementById('chatbox');
+      const el = document.createElement('div');
+      el.className = sender;
+      el.innerHTML = text.replace(/\n/g, '<br/>');
+      chatbox.appendChild(el);
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function addBotPlaceholder() {
+      const chatbox = document.getElementById('chatbox');
+      const el = document.createElement('div'); el.className='bot thinking'; el.textContent='Bhoomi is thinking...';
+      chatbox.appendChild(el); chatbox.scrollTop = chatbox.scrollHeight; return el;
+    }
+
+    function updateBotElement(el, text) {
+      if (!el) return addMessage('bot', text);
+      el.className='bot'; el.innerHTML = (text || '').replace(/\n/g, '<br/>');
+      el.scrollIntoView({behavior:'smooth', block:'end'});
+    }
+
+    async function sendMessage() {
+      const q = document.getElementById('question');
+      const text = (q.value||'').trim();
+      if (!text) return;
+      addMessage('user', text);
+      q.value = '';
+      const placeholder = addBotPlaceholder();
+
+      try {
+        const lang = document.getElementById('lang-select').value;
+        const res = await fetch('/ask', {method:'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({question:text, lang:lang})});
+        const data = await res.json();
+        updateBotElement(placeholder, data.answer || data.result || 'Sorry, no answer.');
+      } catch (e) {
+        updateBotElement(placeholder, '⚠️ Error: Unable to reach server.');
+        console.error(e);
+      }
+    }
+
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
+    document.getElementById('question').addEventListener('keypress', function(e){ if (e.key==='Enter') sendMessage(); });
+
+    // Recording support (simple): records, uploads to /transcribe, sends transcript
+    (function(){
+n      const recordBtn = document.getElementById('record-btn');
+      if (!navigator.mediaDevices) { recordBtn.style.display='none'; return; }
+      let mediaRecorder=null, chunks=[];
+      recordBtn.addEventListener('click', async ()=>{
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+            mediaRecorder = new MediaRecorder(stream);
+            chunks = [];
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.onstop = async ()=>{
+              const blob = new Blob(chunks, {type:'audio/webm'});
+              const fd = new FormData(); fd.append('audio', blob, 'rec.webm');
+              const placeholder = addBotPlaceholder();
+              try {
+                const res = await fetch('/transcribe', {method:'POST', body: fd});
+                const data = await res.json();
+                updateBotElement(placeholder, 'Transcription: ' + (data.transcript||'') );
+                if (data.transcript) { document.getElementById('question').value = data.transcript; sendMessage(); }
+              } catch (e) { updateBotElement(placeholder, '⚠️ Transcription failed'); }
+            };
+            mediaRecorder.start(); recordBtn.textContent='⏺️';
+          } catch (e) { console.error(e); alert('Cannot access microphone'); }
+        } else if (mediaRecorder.state === 'recording') {
+          mediaRecorder.stop(); recordBtn.textContent='🎙️';
+        }
+      });
+    })();
+
+    // Upload docs handler
+    document.getElementById('upload-docs-btn').addEventListener('click', async ()=>{
+      const input = document.getElementById('doc-input');
+      const files = input.files; if (!files || files.length===0) { alert('Select files first'); return; }
+      const fd = new FormData(); for (let i=0;i<files.length;i++) fd.append('docs', files[i]);
+      const placeholder = addBotPlaceholder();
+      try {
+        const res = await fetch('/upload_doc', {method:'POST', body: fd});
+        const data = await res.json();
+        if (data.error) updateBotElement(placeholder, '⚠️ ' + (data.error||'Upload failed'));
+        else updateBotElement(placeholder, data.summary || 'No summary returned.');
+      } catch (e) { updateBotElement(placeholder, '⚠️ Upload failed'); console.error(e); }
+    });
+
+  </script>
+</body>
+</html>
