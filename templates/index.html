@@ -72,18 +72,20 @@
     function createEl(tag, cls, html){const e=document.createElement(tag);if(cls) e.className=cls;if(html!=null) e.innerHTML=html;return e}
 
     // create a message element with a separate content node and controls
-    function addMessage(sender, text){
+    // lang: optional language code associated with this message (e.g., 'en-IN')
+    function addMessage(sender, text, lang){
       const c=document.getElementById('chatbox');
       const el=createEl('div',sender);
+      el.dataset.lang = lang || document.getElementById('lang-select')?.value || 'en-IN';
       const content = createEl('div','msg-content',(text||'').replace(/\n/g,'<br/>'));
       el.appendChild(content);
 
       // controls: copy, speak (bot), edit (user)
       const controls = createEl('div','msg-controls');
-      const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>copyText(text||''));
+  const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>{ const cur = el.querySelector('.msg-content')?.innerText || (text||''); copyText(cur, el); });
       controls.appendChild(copyBtn);
       if(sender==='bot'){
-        const speakBtn = createEl('button','control-btn','🔊'); speakBtn.title='Speak'; speakBtn.addEventListener('click',()=>speakText(text||'')); controls.appendChild(speakBtn);
+        const speakBtn = createEl('button','control-btn','🔊'); speakBtn.title='Speak'; speakBtn.addEventListener('click',()=>speakTextForEl(el)); controls.appendChild(speakBtn);
       }
       if(sender==='user'){
         const editBtn=createEl('button','control-btn','✏️'); editBtn.title='Edit'; editBtn.addEventListener('click',()=>beginInlineEdit(el)); controls.appendChild(editBtn);
@@ -96,9 +98,24 @@
     }
 
     // create a bot placeholder; if afterEl provided, insert after that element
+    // keeps the same structure as addMessage so controls persist
     function addBotPlaceholder(afterEl){
       const c=document.getElementById('chatbox');
-      const el=createEl('div','bot','<em>Bhoomi is thinking...</em>');
+      const el=createEl('div','bot');
+      // determine lang from afterEl or current select
+      const lang = (afterEl && afterEl.dataset && afterEl.dataset.lang) ? afterEl.dataset.lang : (document.getElementById('lang-select')?.value || 'en-IN');
+      el.dataset.lang = lang;
+      const content = createEl('div','msg-content','<em>Bhoomi is thinking...</em>');
+      el.appendChild(content);
+      const controls = createEl('div','msg-controls');
+      const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>{
+        const txt = el.querySelector('.msg-content')?.innerText || '';
+        copyText(txt, el);
+      });
+      const speakBtn = createEl('button','control-btn','🔊'); speakBtn.title='Speak'; speakBtn.addEventListener('click',()=>speakTextForEl(el));
+      controls.appendChild(copyBtn); controls.appendChild(speakBtn);
+      el.appendChild(controls);
+
       if(afterEl && afterEl.parentElement === c){
         c.insertBefore(el, afterEl.nextElementSibling);
       } else {
@@ -108,18 +125,39 @@
       return el;
     }
 
-    function copyText(t){ if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>showToast('Copied')) }
+    function copyText(t, messageEl){
+      if(!t) return;
+      if(navigator.clipboard){
+        navigator.clipboard.writeText(t).then(()=>{
+          showToast('Copied');
+          if(messageEl) showCopiedBadge(messageEl);
+        }).catch(()=>{ showToast('Copy failed') });
+      } else {
+        // fallback
+        try{ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('Copied'); if(messageEl) showCopiedBadge(messageEl); }catch(e){ showToast('Copy failed') }
+      }
+    }
+
+    function showCopiedBadge(messageEl){
+      try{
+        const controls = messageEl.querySelector('.msg-controls');
+        if(!controls) return;
+        let badge = controls.querySelector('.copied-badge');
+        if(badge){ clearTimeout(badge._removeTimer); }
+        else { badge = createEl('span','copied-badge','Copied'); badge.style.marginLeft='8px'; badge.style.fontSize='12px'; badge.style.color='#2b7a2b'; controls.appendChild(badge); }
+        badge._removeTimer = setTimeout(()=>{ try{ badge.remove(); }catch(e){} },1400);
+      }catch(e){ console.error(e) }
+    }
 
     function showToast(msg){ const t=createEl('div','toast',msg); document.body.appendChild(t); t.style.position='fixed'; t.style.left='50%'; t.style.bottom='24px'; t.style.transform='translateX(-50%)'; t.style.background='rgba(0,0,0,0.8)'; t.style.color='#fff'; t.style.padding='8px 12px'; t.style.borderRadius='8px'; setTimeout(()=>t.remove(),1400) }
 
   // Simple TTS: speak the provided text (cancels any existing speech) and pick a matching voice when available
-  function speakText(text){
+  function speakText(text, lang){
     try{
       if(!text) return;
       if(window.speechSynthesis && typeof SpeechSynthesisUtterance !== 'undefined'){
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(cleanForTTS(text));
-        const lang = document.getElementById('lang-select')?.value;
         if(lang) u.lang = lang;
 
         // try to pick a matching voice for the selected language
@@ -147,6 +185,16 @@
         window.speechSynthesis.speak(u);
       } else { showToast('TTS not supported'); }
     }catch(e){ console.error(e); showToast('TTS error') }
+  }
+
+  function speakTextForEl(el){
+    try{
+      if(!el) return;
+      const content = el.querySelector('.msg-content');
+      const text = content ? content.innerText : (el.innerText||'');
+      const lang = el.dataset?.lang || document.getElementById('lang-select')?.value;
+      speakText(text, lang);
+    }catch(e){ console.error(e) }
   }
 
   function cleanForTTS(s){ if(!s) return ''; let t=String(s); t=t.replace(/`+/g,''); t=t.replace(/\*+/g,''); t=t.replace(/•/g,','); t=t.replace(/\n+/g,'. '); t=t.replace(/\s+/g,' '); return t.trim(); }
@@ -184,9 +232,9 @@
         // show thinking in existing bot element or create one if missing
         let botEl = currentEdit.botEl;
         if(botEl && botEl.parentElement){
-          botEl.querySelector('.msg-content')?.remove?.();
-          // replace content safely
-          botEl.innerHTML = '<em>Bhoomi is thinking...</em>';
+          const bc = botEl.querySelector('.msg-content');
+          if(bc) bc.innerHTML = '<em>Bhoomi is thinking...</em>';
+          else { botEl.innerHTML = '<div class="msg-content"><em>Bhoomi is thinking...</em></div>'; }
         } else {
           // create placeholder directly after userEl so response updates in-place
           botEl = addBotPlaceholder(currentEdit.userEl);
@@ -198,7 +246,9 @@
           const lang=document.getElementById('lang-select').value;
           const res=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:txt,lang})});
           const j=await res.json();
-          botEl.innerHTML = (j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+          const ans = (j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+          const bc = botEl.querySelector('.msg-content'); if(bc) bc.innerHTML = ans; else botEl.innerHTML = '<div class="msg-content">'+ans+'</div>';
+          botEl.dataset.lang = lang || botEl.dataset.lang || document.getElementById('lang-select')?.value;
         }catch(e){ botEl.innerHTML='⚠️ Error: Unable to reach server.' }
 
         // clear edit state and restore send button label
@@ -215,8 +265,10 @@
         const lang=document.getElementById('lang-select').value;
         const res=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:txt,lang})});
         const j=await res.json();
-        ph.innerHTML=(j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
-      }catch(e){ph.innerHTML='⚠️ Error: Unable to reach server.'}
+        const ans=(j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+        const pc = ph.querySelector('.msg-content'); if(pc) pc.innerHTML = ans; else ph.innerHTML = '<div class="msg-content">'+ans+'</div>';
+        ph.dataset.lang = lang || ph.dataset.lang || document.getElementById('lang-select')?.value;
+      }catch(e){ const pc = ph.querySelector('.msg-content'); if(pc) pc.innerHTML='⚠️ Error: Unable to reach server.'; else ph.innerHTML='⚠️ Error: Unable to reach server.' }
     }
 
     document.getElementById('send-btn').addEventListener('click',sendMessage);
@@ -240,7 +292,11 @@
               try{
                 const res = await fetch('/transcribe', { method:'POST', body: fd });
                 const d = await res.json();
-                ph.innerHTML = 'Transcription: ' + (d.transcript || '');
+                // write transcription into the placeholder's content node (preserve controls)
+                const pc = ph.querySelector('.msg-content');
+                if(pc) pc.innerHTML = 'Transcription: ' + (d.transcript || ''); else ph.innerHTML = 'Transcription: ' + (d.transcript || '');
+                // set detected language attribute so speak uses correct language
+                if(d.lang) ph.dataset.lang = d.lang;
 
                 // Map detected language (from server) to our lang-select values and set it for downstream sends
                 try{
@@ -249,7 +305,7 @@
                 }catch(e){}
 
                 if(d.transcript){ document.getElementById('question').value = d.transcript; sendMessage(); }
-              }catch(err){ ph.innerHTML = '⚠️ Transcription failed' }
+              }catch(err){ const pc = ph.querySelector('.msg-content'); if(pc) pc.innerHTML='⚠️ Transcription failed'; else ph.innerHTML = '⚠️ Transcription failed' }
             };
             mr.start(); rb.textContent='⏺️'
           }catch(err){ alert('Cannot access microphone') }
@@ -296,19 +352,21 @@
 
           // show thinking placeholder after the edited user message
           let replyEl = currentEdit.botEl;
-          if(!replyEl || replyEl.parentElement!==document.getElementById('chatbox')){
-            replyEl = addBotPlaceholder(msgEl);
-            currentEdit.botEl = replyEl;
-          } else {
-            replyEl.innerHTML = '<em>Bhoomi is thinking...</em>';
-          }
+              if(!replyEl || replyEl.parentElement!==document.getElementById('chatbox')){
+              replyEl = addBotPlaceholder(msgEl);
+              currentEdit.botEl = replyEl;
+            } else {
+              const rc = replyEl.querySelector('.msg-content'); if(rc) rc.innerHTML = '<em>Bhoomi is thinking...</em>'; else replyEl.innerHTML = '<div class="msg-content"><em>Bhoomi is thinking...</em></div>';
+            }
 
           // send updated question and update replyEl in-place
           try{
             const lang=document.getElementById('lang-select').value;
             const res=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:newText,lang})});
             const j=await res.json();
-            replyEl.innerHTML = (j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+            const ans=(j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+            const rc = replyEl.querySelector('.msg-content'); if(rc) rc.innerHTML = ans; else replyEl.innerHTML = '<div class="msg-content">'+ans+'</div>';
+            replyEl.dataset.lang = lang || replyEl.dataset.lang || document.getElementById('lang-select')?.value;
           }catch(e){ replyEl.innerHTML='⚠️ Error: Unable to reach server.' }
 
           currentEdit = null;
@@ -330,7 +388,7 @@
     function restoreMessageControls(msgEl, text){
       const controls = msgEl.querySelector('.msg-controls');
       controls.innerHTML = '';
-      const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>copyText(text||'')); controls.appendChild(copyBtn);
+  const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>{ const cur = msgEl.querySelector('.msg-content')?.innerText || (text||''); copyText(cur, msgEl); }); controls.appendChild(copyBtn);
       const editBtn = createEl('button','control-btn','✏️'); editBtn.title='Edit'; editBtn.addEventListener('click',()=>beginInlineEdit(msgEl)); controls.appendChild(editBtn);
     }
   </script>
