@@ -76,6 +76,7 @@
     function addMessage(sender, text, lang){
       const c=document.getElementById('chatbox');
       const el=createEl('div',sender);
+      el.dataset.id = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
       el.dataset.lang = lang || document.getElementById('lang-select')?.value || 'en-IN';
       const content = createEl('div','msg-content',(text||'').replace(/\n/g,'<br/>'));
       el.appendChild(content);
@@ -86,10 +87,18 @@
       controls.appendChild(copyBtn);
       if(sender==='bot'){
         const speakBtn = createEl('button','control-btn','🔊'); speakBtn.title='Speak'; speakBtn.addEventListener('click',()=>speakTextForEl(el)); controls.appendChild(speakBtn);
+        // feedback buttons
+        const up = createEl('button','control-btn','👍'); up.title='Helpful'; up.addEventListener('click',()=>sendFeedback(el.dataset.id,'up',el));
+        const down = createEl('button','control-btn','👎'); down.title='Not helpful'; down.addEventListener('click',()=>sendFeedback(el.dataset.id,'down',el));
+        const fbCount = createEl('span','fb-count',''); fbCount.style.marginLeft='6px'; fbCount.style.fontSize='12px'; fbCount.dataset.up=0; fbCount.dataset.down=0;
+        controls.appendChild(up); controls.appendChild(down); controls.appendChild(fbCount);
       }
       if(sender==='user'){
         const editBtn=createEl('button','control-btn','✏️'); editBtn.title='Edit'; editBtn.addEventListener('click',()=>beginInlineEdit(el)); controls.appendChild(editBtn);
       }
+      // language badge
+      const langBadge = createEl('span','lang-badge', el.dataset.lang ? el.dataset.lang.replace(/-.*/,'') : ''); langBadge.style.marginLeft='8px'; langBadge.style.fontSize='11px'; langBadge.style.opacity='0.8';
+      controls.appendChild(langBadge);
       el.appendChild(controls);
 
       c.appendChild(el);
@@ -102,6 +111,7 @@
     function addBotPlaceholder(afterEl){
       const c=document.getElementById('chatbox');
       const el=createEl('div','bot');
+      el.dataset.id = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
       // determine lang from afterEl or current select
       const lang = (afterEl && afterEl.dataset && afterEl.dataset.lang) ? afterEl.dataset.lang : (document.getElementById('lang-select')?.value || 'en-IN');
       el.dataset.lang = lang;
@@ -114,6 +124,14 @@
       });
       const speakBtn = createEl('button','control-btn','🔊'); speakBtn.title='Speak'; speakBtn.addEventListener('click',()=>speakTextForEl(el));
       controls.appendChild(copyBtn); controls.appendChild(speakBtn);
+
+      // feedback buttons on placeholder
+      const up = createEl('button','control-btn','👍'); up.title='Helpful'; up.addEventListener('click',()=>sendFeedback(el.dataset.id,'up',el));
+      const down = createEl('button','control-btn','👎'); down.title='Not helpful'; down.addEventListener('click',()=>sendFeedback(el.dataset.id,'down',el));
+      const fbCount = createEl('span','fb-count',''); fbCount.style.marginLeft='6px'; fbCount.style.fontSize='12px'; fbCount.dataset.up=0; fbCount.dataset.down=0;
+      controls.appendChild(up); controls.appendChild(down); controls.appendChild(fbCount);
+
+      const langBadge = createEl('span','lang-badge',''); langBadge.style.marginLeft='8px'; langBadge.style.fontSize='11px'; langBadge.style.opacity='0.8'; controls.appendChild(langBadge);
       el.appendChild(controls);
 
       if(afterEl && afterEl.parentElement === c){
@@ -195,6 +213,23 @@
       const lang = el.dataset?.lang || document.getElementById('lang-select')?.value;
       speakText(text, lang);
     }catch(e){ console.error(e) }
+  }
+
+  // send feedback for a bot message (id must be present)
+  async function sendFeedback(id, type, el){
+    if(!id) return;
+    try{
+      const res = await fetch('/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,type})});
+      if(!res.ok) throw new Error('network');
+      const data = await res.json();
+      updateFeedbackUI(el, data);
+    }catch(e){ console.error('feedback failed',e); }
+  }
+
+  function updateFeedbackUI(el, data){
+    if(!el) return;
+    const fb = el.querySelector('.fb-count');
+    if(fb){ fb.dataset.up = data.up || 0; fb.dataset.down = data.down || 0; fb.innerText = `👍 ${fb.dataset.up} · 👎 ${fb.dataset.down}`; }
   }
 
   function cleanForTTS(s){ if(!s) return ''; let t=String(s); t=t.replace(/`+/g,''); t=t.replace(/\*+/g,''); t=t.replace(/•/g,','); t=t.replace(/\n+/g,'. '); t=t.replace(/\s+/g,' '); return t.trim(); }

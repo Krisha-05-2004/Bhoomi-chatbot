@@ -34,6 +34,9 @@ MAX_HISTORY = 6  # Number of previous exchanges Bhoomi remembers
 
 app = Flask(__name__, template_folder="../templates")
 
+# Simple in-memory feedback store: { msg_id: { 'up': int, 'down': int } }
+feedback_store = {}
+
 # Load API key locally from replacements.txt
 with open(Path(__file__).parent.parent / "replacements.txt", "r") as f:
     OPENAI_API_KEY = f.read().strip()
@@ -225,6 +228,39 @@ def upload_doc():
     except Exception as e:
         print("⚠️ upload_doc error:", e)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    """Accept a simple feedback POST with JSON: {id: message_id, type: 'up'|'down'}
+    Returns the updated counts for that message.
+    This is an in-memory store for now.
+    """
+    try:
+        data = request.get_json() or {}
+        mid = data.get('id')
+        ftype = data.get('type')
+        if not mid or ftype not in ('up','down'):
+            return jsonify({'error':'missing id or invalid type'}), 400
+        entry = feedback_store.get(mid) or {'up':0,'down':0}
+        if ftype == 'up':
+            entry['up'] = entry.get('up',0) + 1
+        else:
+            entry['down'] = entry.get('down',0) + 1
+        feedback_store[mid] = entry
+        return jsonify(entry)
+    except Exception as e:
+        print('⚠️ Feedback error:', e)
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/feedback_counts', methods=['GET'])
+def feedback_counts():
+    mid = request.args.get('id')
+    if not mid:
+        return jsonify({'error':'missing id'}), 400
+    entry = feedback_store.get(mid) or {'up':0,'down':0}
+    return jsonify(entry)
 
 if __name__ == "__main__":
     # Start the Flask development server (original simple behavior)
