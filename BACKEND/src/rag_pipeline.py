@@ -8,7 +8,8 @@ from langchain.prompts import PromptTemplate
 
 from .ingest import load_and_split_pdfs
 from .llm import get_llm
-from config import RAW_DATA_DIR, VECTORSTORE_DIR
+from BACKEND.config import RAW_DATA_DIR, VECTORSTORE_DIR
+
 
 
 def build_rag_pipeline(rebuild=True):
