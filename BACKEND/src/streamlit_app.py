@@ -1,5 +1,5 @@
 import streamlit as st
-from rag_pipeline import build_rag_pipeline
+from .rag_pipeline import build_rag_pipeline
 
 st.title("🌾 Bhoomi - Smart Farming Assistant")
 
