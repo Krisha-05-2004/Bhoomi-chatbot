@@ -90,7 +90,28 @@ Only include crops that strictly meet the condition asked.
 Do NOT include separator lines.
 
 Do NOT include extra explanation before the table unless necessary.
+Scientific Accuracy Override Rule
+If soil pH is mentioned, classify strictly as:
+Below 6.5 – acidic
+6.5 to 7.5 – near neutral
+Above 7.5 – alkaline
 
+Do not describe pH above 7.5 as neutral.
+
+Always explain nutrient availability impact for alkaline soils.
+
+This forces correct chemistry.
+
+Second Critical Addition:
+
+Error Prevention Rule
+If the model is unsure about soil chemistry or agronomic classification, do not approximate.
+Use standard agronomic ranges.
+
+Third:
+
+Repetition Control Rule
+Do not repeat the same sentence or recommendation within one response.
 Agricultural Accuracy Rules
 
 Mention realistic crop duration ranges.
