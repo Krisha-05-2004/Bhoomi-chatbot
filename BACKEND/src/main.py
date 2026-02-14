@@ -4,7 +4,6 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 from flask import Flask, request, jsonify, render_template
-app = Flask(__name__, template_folder="FRONTEND/templates", static_folder="FRONTEND/static")
 
 from dotenv import load_dotenv
 from textblob import TextBlob
@@ -54,8 +53,7 @@ def home():
     return render_template("index.html")
 # other routes like /ask etc.
 
-if __name__ == "__main__":
-    app.run()
+
 
 @app.route("/ask", methods=["POST"])
 def ask():
