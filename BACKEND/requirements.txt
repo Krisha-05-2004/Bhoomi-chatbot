@@ -1,0 +1,14 @@
+python-dotenv
+langchain==0.1.16
+langchain-community==0.0.36
+langchain-groq==0.1.5
+groq==0.9.0
+httpx==0.27.0
+pydantic==1.10.13
+sentence-transformers==2.6.1
+transformers>=4.38,<4.41
+regex==2023.12.25
+faiss-cpu
+pypdf
+matplotlib
+streamlit

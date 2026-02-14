@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>🌱 Bhoomi – Smart Farming Companion</title>
+    
+<style>  
+  body {
+      font-family: "Segoe UI", sans-serif;
+      background-image: url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1950&q=80");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .overlay {
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      background-color: rgba(255, 255, 255, 0.5);
+      padding: 20px;
+      border-radius: 16px;
+      width: 90%;
+      max_width: 1100px;
+      height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.3);
+      position: relative;
+      z-index: 1;
+    }
+
+    header{background:#3c9d47;color:#fff;padding:16px 20px;font-size:20px;font-weight:600}
+    #chatbox{flex:1;padding:18px;overflow:auto;background:linear-gradient(#f7fff7,#ffffff)}
+    .bot,.user{margin:12px 0;padding:14px;border-radius:12px;max-width:92%;line-height:1.45}
+    .bot{background:#e6f5e6;align-self:flex-start;font-size:15px}
+    .user{background:#dbeeff;align-self:flex-end}
+    .controls{display:flex;gap:8px;padding:12px;border-top:1px solid #eee;background:#fafafa;align-items:center}
+    select,input[type=text]{padding:10px;border-radius:8px;border:1px solid #ccc}
+    #question{flex:1;min-width:140px}
+    .btn{background:#3c9d47;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer}
+    .icon-btn{background:transparent;border:1px solid #ddd;padding:8px;border-radius:8px;cursor:pointer}
+    .msg-controls{display:flex;gap:8px;margin-top:6px;font-size:12px;align-items:center}
+    .control-btn{background:transparent;border:none;cursor:pointer;padding:6px;border-radius:6px}
+    .lang-badge{order:-1;margin-right:6px;padding:2px 6px;border-radius:8px;background:rgba(255,255,255,0.6);font-size:11px;color:#2b7a2b}
+    .control-btn[disabled]{opacity:0.4;cursor:default}
+    .control-btn.voted-up{font-weight:700;color:#2b7a2b}
+    .control-btn.voted-down{font-weight:700;color:#c0392b}
+</style>
+</head>
+
+<body>
+  <div class="overlay">
+    <header>🌱 Bhoomi – Smart Farming Companion</header>
+    <div id="chatbox">
+      <div class="bot">Hello! I’m <strong>Bhoomi</strong> 🌾<br/>Ask me anything about farming — water, soil, crops, or simple tips.</div>
+    </div>
+    <div class="controls">
+      <select id="lang-select">
+        <option value="en-IN">English</option>
+        <option value="hi-IN">हिन्दी</option>
+        <option value="kn-IN">ಕನ್ನಡ</option>
+        <option value="te-IN">తెలుగు</option>
+      </select>
+      <!-- File upload removed due to OpenAI upload migration issues -->
+      <button id="record-btn" class="icon-btn" title="Record audio">🎙️</button>
+      <input id="question" type="text" placeholder="Type your question here..." />
+      <button id="send-btn" class="btn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // small helpers
+    function createEl(tag, cls, html){const e=document.createElement(tag);if(cls) e.className=cls;if(html!=null) e.innerHTML=html;return e}
+
+    // create a message element with a separate content node and controls
+    // lang: optional language code associated with this message (e.g., 'en-IN')
+    function addMessage(sender, text, lang){
+      const c=document.getElementById('chatbox');
+      const el=createEl('div',sender);
+      el.dataset.id = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+      el.dataset.lang = lang || document.getElementById('lang-select')?.value || 'en-IN';
+      const content = createEl('div','msg-content',(text||'').replace(/\n/g,'<br/>'));
+      el.appendChild(content);
+
+      // controls: copy, speak (bot), edit (user)
+      const controls = createEl('div','msg-controls');
+  const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>{ const cur = el.querySelector('.msg-content')?.innerText || (text||''); copyText(cur, el); });
+      controls.appendChild(copyBtn);
+      if(sender==='bot'){
+        const speakBtn = createEl('button','control-btn','🔊'); speakBtn.title='Speak'; speakBtn.addEventListener('click',()=>speakTextForEl(el)); controls.appendChild(speakBtn);
+        // single like button + numeric count (no dislike)
+        const up = createEl('button','control-btn','�'); up.title='Helpful'; up.addEventListener('click',()=>sendFeedback(el.dataset.id,'up',el));
+        const fbCount = createEl('span','fb-count','0'); fbCount.style.marginLeft='6px'; fbCount.style.fontSize='12px'; fbCount.dataset.up=0;
+        controls.appendChild(up); controls.appendChild(fbCount);
+      }
+      if(sender==='user'){
+        const editBtn=createEl('button','control-btn','✏️'); editBtn.title='Edit'; editBtn.addEventListener('click',()=>beginInlineEdit(el)); controls.appendChild(editBtn);
+      }
+      // language badge
+      const langBadge = createEl('span','lang-badge', el.dataset.lang ? el.dataset.lang.replace(/-.*/,'') : ''); langBadge.style.marginLeft='8px'; langBadge.style.fontSize='11px'; langBadge.style.opacity='0.8';
+      controls.appendChild(langBadge);
+      el.appendChild(controls);
+
+      c.appendChild(el);
+      c.scrollTop=c.scrollHeight;
+      return el;
+    }
+
+    // create a bot placeholder; if afterEl provided, insert after that element
+    // keeps the same structure as addMessage so controls persist
+    function addBotPlaceholder(afterEl){
+      const c=document.getElementById('chatbox');
+      const el=createEl('div','bot');
+      el.dataset.id = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+      // determine lang from afterEl or current select
+      const lang = (afterEl && afterEl.dataset && afterEl.dataset.lang) ? afterEl.dataset.lang : (document.getElementById('lang-select')?.value || 'en-IN');
+      el.dataset.lang = lang;
+      // while thinking we do not show controls (no copy/speak/feedback). Controls will be rendered when an answer arrives.
+      const content = createEl('div','msg-content','<em>Bhoomi is thinking...</em>');
+      el.appendChild(content);
+      el.dataset.placeholder = '1';
+
+      if(afterEl && afterEl.parentElement === c){
+        c.insertBefore(el, afterEl.nextElementSibling);
+      } else {
+        c.appendChild(el);
+      }
+      c.scrollTop=c.scrollHeight;
+      return el;
+    }
+
+    // render controls for a final bot element (copy, speak, feedback, lang badge)
+    async function renderBotControls(el){
+      if(!el || !el.classList || !el.classList.contains('bot')) return;
+      // if controls already present, do nothing
+      if(el.querySelector('.msg-controls')) return;
+      const controls = createEl('div','msg-controls');
+      const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>{ const txt = el.querySelector('.msg-content')?.innerText || ''; copyText(txt, el); });
+      const speakBtn = createEl('button','control-btn','🔊'); speakBtn.title='Speak'; speakBtn.addEventListener('click',()=>speakTextForEl(el));
+      controls.appendChild(copyBtn); controls.appendChild(speakBtn);
+
+        const up = createEl('button','control-btn','👍'); up.title='Helpful'; up.addEventListener('click',()=>sendFeedback(el.dataset.id,'up',el));
+        const fbCount = createEl('span','fb-count','0'); fbCount.style.marginLeft='6px'; fbCount.style.fontSize='12px'; fbCount.dataset.up=0;
+        controls.appendChild(up); controls.appendChild(fbCount);
+
+      const langBadge = createEl('span','lang-badge', el.dataset.lang ? el.dataset.lang.replace(/-.*/,'') : ''); langBadge.style.marginLeft='8px'; langBadge.style.fontSize='11px'; langBadge.style.opacity='0.8';
+      controls.appendChild(langBadge);
+      el.appendChild(controls);
+
+      // fetch existing counts (if any)
+      try{
+        const res = await fetch('/feedback_counts?id=' + encodeURIComponent(el.dataset.id));
+        if(res.ok){ const data = await res.json(); updateFeedbackUI(el, data); }
+      }catch(e){}
+
+      // if this client already voted, reflect it
+      try{
+        const j = localStorage.getItem('bhoomi_votes'); const map = j ? JSON.parse(j) : {}; const v = map[el.dataset.id]; if(v){ disableFeedbackButtons(el); const upBtn = el.querySelector('button[title="Helpful"]'); const downBtn = el.querySelector('button[title="Not helpful"]'); if(v==='up' && upBtn){ upBtn.classList.add('voted-up'); } if(v==='down' && downBtn){ downBtn.classList.add('voted-down'); } }
+      }catch(e){}
+
+      // clear placeholder flag
+      try{ delete el.dataset.placeholder; }catch(e){}
+    }
+
+    function copyText(t, messageEl){
+      if(!t) return;
+      if(navigator.clipboard){
+        navigator.clipboard.writeText(t).then(()=>{
+          showToast('Copied');
+          if(messageEl) showCopiedBadge(messageEl);
+        }).catch(()=>{ showToast('Copy failed') });
+      } else {
+        // fallback
+        try{ const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); showToast('Copied'); if(messageEl) showCopiedBadge(messageEl); }catch(e){ showToast('Copy failed') }
+      }
+    }
+
+    function showCopiedBadge(messageEl){
+      try{
+        const controls = messageEl.querySelector('.msg-controls');
+        if(!controls) return;
+        let badge = controls.querySelector('.copied-badge');
+        if(badge){ clearTimeout(badge._removeTimer); }
+        else { badge = createEl('span','copied-badge','Copied'); badge.style.marginLeft='8px'; badge.style.fontSize='12px'; badge.style.color='#2b7a2b'; controls.appendChild(badge); }
+        badge._removeTimer = setTimeout(()=>{ try{ badge.remove(); }catch(e){} },1400);
+      }catch(e){ console.error(e) }
+   
+    }
+
+    function showToast(msg){ const t=createEl('div','toast',msg); document.body.appendChild(t); t.style.position='fixed'; t.style.left='50%'; t.style.bottom='24px'; t.style.transform='translateX(-50%)'; t.style.background='rgba(0,0,0,0.8)'; t.style.color='#fff'; t.style.padding='8px 12px'; t.style.borderRadius='8px'; setTimeout(()=>t.remove(),1400) }
+
+// ===============================
+// SIMPLE SPEAKER (WORKING CLEAN VERSION)
+// ===============================
+
+let currentUtterance = null;
+let speakingEl = null;
+
+// Clean text
+function cleanForTTS(text) {
+    if (!text) return "";
+    return text
+        .replace(/`+/g, "")
+        .replace(/\*+/g, "")
+        .replace(/\n+/g, ". ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+// Speak / Stop toggle
+function speakTextForEl(el) {
+    if (!el) return;
+
+    const text = cleanForTTS(
+        el.querySelector('.msg-content')?.innerText || ''
+    );
+
+    if (!text.trim()) return;
+
+    // If same message is speaking → stop
+    if (speechSynthesis.speaking && speakingEl === el) {
+        speechSynthesis.cancel();
+        speakingEl = null;
+        return;
+    }
+
+    // Stop previous speech
+    speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Wait for voices to load properly
+    const voices = speechSynthesis.getVoices();
+    if (voices.length > 0) {
+        utterance.voice =
+            voices.find(v => v.lang === "en-IN") ||
+            voices.find(v => v.lang.startsWith("en")) ||
+            voices[0];
+    }
+
+    utterance.onend = () => {
+        speakingEl = null;
+    };
+
+    speakingEl = el;
+    speechSynthesis.speak(utterance);
+}
+window.speechSynthesis.onvoiceschanged = function () {
+    speechSynthesis.getVoices();
+};
+
+
+  // send feedback for a bot message (id must be present)
+  async function sendFeedback(id, type, el){
+    if(!id) return;
+    // prevent repeated votes from the same browser using localStorage
+    try{
+      if(hasVoted(id)){
+        showToast('You already voted for this response');
+        // reflect previous vote in UI
+        disableFeedbackButtons(el);
+        return;
+      }
+      // only 'up' is used in the UI now
+      const res = await fetch('/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,'type':'up'})});
+      if(!res.ok) throw new Error('network');
+      const data = await res.json();
+      // persist that this client has voted for this message
+      setVoted(id, 'up');
+      updateFeedbackUI(el, data);
+      disableFeedbackButtons(el);
+    }catch(e){ console.error('feedback failed',e); showToast('Feedback failed') }
+  }
+
+  function updateFeedbackUI(el, data){
+    if(!el) return;
+    const fb = el.querySelector('.fb-count');
+    if(fb){ fb.dataset.up = data.up || 0; fb.innerText = `${fb.dataset.up}`; }
+  }
+
+  // localStorage helpers to prevent repeat votes from the same browser
+  function hasVoted(id){
+    try{ const j = localStorage.getItem('bhoomi_votes'); if(!j) return false; const map = JSON.parse(j||'{}'); return !!map[id]; }catch(e){ return false }
+  }
+  function setVoted(id, type){
+    try{ const j = localStorage.getItem('bhoomi_votes'); const map = j ? JSON.parse(j) : {}; map[id] = type; localStorage.setItem('bhoomi_votes', JSON.stringify(map)); }catch(e){}
+  }
+  function disableFeedbackButtons(el){
+    try{
+      const up = el.querySelector('button[title="Helpful"]');
+      if(up) up.disabled = true;
+      // mark which button was voted using localStorage
+      try{
+        const j = localStorage.getItem('bhoomi_votes'); const map = j ? JSON.parse(j) : {}; const v = map[el.dataset.id];
+        if(v === 'up' && up){ up.classList.add('voted-up'); }
+      }catch(e){}
+    }catch(e){}
+  }
+
+
+  // Map detected short language codes (whisper/langdetect) to our select values
+  function mapDetectedLangToSelectCode(detected){
+    if(!detected) return null;
+    const code = String(detected).toLowerCase();
+    if(code.startsWith('hi')) return 'hi-IN';
+    if(code.startsWith('kn')) return 'kn-IN';
+    if(code.startsWith('te')) return 'te-IN';
+    if(code.startsWith('en')) return 'en-IN';
+    // fallback: if exact match of our options
+    const opts = ['en-IN','hi-IN','kn-IN','te-IN'];
+    for(const o of opts) if(o.toLowerCase().startsWith(code)) return o;
+    return null;
+  }
+
+    // currentEdit tracks an inline edit in progress: { userEl, botEl }
+    let currentEdit = null;
+
+    async function sendMessage(){
+      const q=document.getElementById('question');
+      const txt=(q.value||'').trim();
+      if(!txt) return;
+      q.value='';
+
+      // If we're editing an existing user message, update that message and reuse its bot reply element
+      if(currentEdit && currentEdit.userEl){
+  // update user message content (preserve controls)
+  const userEl = currentEdit.userEl;
+  const contentDiv = userEl.querySelector('.msg-content');
+  if(contentDiv){ contentDiv.innerHTML = txt.replace(/\n/g,'<br/>'); } else { try{ if(userEl.firstChild) userEl.firstChild.textContent = txt; else userEl.textContent = txt }catch(e){} }
+
+        // show thinking in existing bot element or create one if missing
+        let botEl = currentEdit.botEl;
+        if(botEl && botEl.parentElement){
+          const bc = botEl.querySelector('.msg-content');
+          if(bc) bc.innerHTML = '<em>Bhoomi is thinking...</em>';
+          else { botEl.innerHTML = '<div class="msg-content"><em>Bhoomi is thinking...</em></div>'; }
+        } else {
+          // create placeholder directly after userEl so response updates in-place
+          botEl = addBotPlaceholder(currentEdit.userEl);
+          currentEdit.botEl = botEl;
+        }
+
+        // perform request and update botEl in-place
+        try{
+          const lang=document.getElementById('lang-select').value;
+          const res=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:txt,lang})});
+          const j=await res.json();
+          const ans = (j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+          const bc = botEl.querySelector('.msg-content'); if(bc) bc.innerHTML = ans; else botEl.innerHTML = '<div class="msg-content">'+ans+'</div>';
+          botEl.dataset.lang = lang || botEl.dataset.lang || document.getElementById('lang-select')?.value;
+            // render controls now that we have a final answer
+            try{ renderBotControls(botEl); }catch(e){}
+        }catch(e){ botEl.innerHTML='⚠️ Error: Unable to reach server.' }
+
+        // clear edit state and restore send button label
+        currentEdit = null;
+        const cancelBtn = document.getElementById('cancel-edit-btn'); if(cancelBtn) cancelBtn.style.display='none';
+        document.getElementById('send-btn').textContent = 'Send';
+        return;
+      }
+
+      // Normal send (not editing): append user and bot placeholder
+      addMessage('user',txt);
+      const ph=addBotPlaceholder();
+      try{
+        const lang=document.getElementById('lang-select').value;
+        const res=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:txt,lang})});
+        const j=await res.json();
+        const ans=(j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+        const pc = ph.querySelector('.msg-content'); if(pc) pc.innerHTML = ans; else ph.innerHTML = '<div class="msg-content">'+ans+'</div>';
+        ph.dataset.lang = lang || ph.dataset.lang || document.getElementById('lang-select')?.value;
+        try{ renderBotControls(ph); }catch(e){}
+      }catch(e){ const pc = ph.querySelector('.msg-content'); if(pc) pc.innerHTML='⚠️ Error: Unable to reach server.'; else ph.innerHTML='⚠️ Error: Unable to reach server.' }
+    }
+
+    document.getElementById('send-btn').addEventListener('click',sendMessage);
+    document.getElementById('question').addEventListener('keypress',e=>{if(e.key==='Enter') sendMessage()});
+
+    // Recording & transcribe
+    (function(){
+      const rb=document.getElementById('record-btn');
+      if(!rb || !navigator.mediaDevices){ if(rb) rb.style.display='none'; return }
+      let mr=null, chunks=[];
+      rb.addEventListener('click', async ()=>{
+        if(!mr || mr.state==='inactive'){
+          try{
+            const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+            mr=new MediaRecorder(stream); chunks=[];
+            mr.ondataavailable = e => chunks.push(e.data);
+            mr.onstop = async ()=>{
+              const blob = new Blob(chunks, {type:'audio/webm'});
+              const fd = new FormData(); fd.append('audio', blob, 'rec.webm');
+              const ph = addBotPlaceholder();
+              try{
+                const res = await fetch('/transcribe', { method:'POST', body: fd });
+                const d = await res.json();
+                // write transcription into the placeholder's content node (preserve controls)
+                const pc = ph.querySelector('.msg-content');
+                if(pc) pc.innerHTML = 'Transcription: ' + (d.transcript || ''); else ph.innerHTML = 'Transcription: ' + (d.transcript || '');
+                // set detected language attribute so speak uses correct language
+                if(d.lang) ph.dataset.lang = d.lang;
+
+                // Map detected language (from server) to our lang-select values and set it for downstream sends
+                try{
+                  const mapped = mapDetectedLangToSelectCode(d.lang);
+                  if(mapped){ const s = document.getElementById('lang-select'); if(s) s.value = mapped; }
+                }catch(e){}
+
+                if(d.transcript){ document.getElementById('question').value = d.transcript; sendMessage(); }
+              }catch(err){ const pc = ph.querySelector('.msg-content'); if(pc) pc.innerHTML='⚠️ Transcription failed'; else ph.innerHTML = '⚠️ Transcription failed' }
+            };
+            mr.start(); rb.textContent='⏺️'
+          }catch(err){ alert('Cannot access microphone') }
+        } else if(mr.state==='recording'){ mr.stop(); rb.textContent='🎙️' }
+      })
+    })();
+
+    // File upload UI and client handler removed.
+
+    // Inline edit: replace message content with a textarea and show Save/Cancel inside the message controls
+    function beginInlineEdit(msgEl){
+      try{
+        const contentDiv = msgEl.querySelector('.msg-content');
+        const orig = contentDiv ? contentDiv.innerText.replace(/\n/g,'') : (msgEl.innerText||'');
+        // store original for cancel
+        msgEl.dataset.original = orig;
+
+        // replace content with textarea
+        const ta = createEl('textarea','inline-edit');
+        ta.style.width = '100%'; ta.style.minHeight = '64px'; ta.value = orig;
+        if(contentDiv){ contentDiv.innerHTML = ''; contentDiv.appendChild(ta); }
+        else { msgEl.insertBefore(ta, msgEl.firstChild); }
+
+        // find adjacent bot element if available
+        let botEl = null;
+        if(msgEl.nextElementSibling && msgEl.nextElementSibling.classList && msgEl.nextElementSibling.classList.contains('bot')){
+          botEl = msgEl.nextElementSibling;
+        }
+        currentEdit = { userEl: msgEl, botEl };
+
+        // update controls: replace existing controls with Save/Cancel
+        const controls = msgEl.querySelector('.msg-controls');
+        controls.innerHTML = '';
+        const saveBtn = createEl('button','control-btn','💾'); saveBtn.title='Save';
+        const cancelBtn = createEl('button','control-btn','✖️'); cancelBtn.title='Cancel';
+        controls.appendChild(saveBtn); controls.appendChild(cancelBtn);
+
+        saveBtn.addEventListener('click', async ()=>{
+          const newText = ta.value.trim();
+          // replace content with updated text immediately
+          if(contentDiv){ contentDiv.innerHTML = (newText||'').replace(/\n/g,'<br/>'); }
+          // restore original controls (copy + edit)
+          restoreMessageControls(msgEl, newText);
+
+          // show thinking placeholder after the edited user message
+          let replyEl = currentEdit.botEl;
+              if(!replyEl || replyEl.parentElement!==document.getElementById('chatbox')){
+              replyEl = addBotPlaceholder(msgEl);
+              currentEdit.botEl = replyEl;
+            } else {
+              const rc = replyEl.querySelector('.msg-content'); if(rc) rc.innerHTML = '<em>Bhoomi is thinking...</em>'; else replyEl.innerHTML = '<div class="msg-content"><em>Bhoomi is thinking...</em></div>';
+            }
+
+          // send updated question and update replyEl in-place
+          try{
+            const lang=document.getElementById('lang-select').value;
+            const res=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:newText,lang})});
+            const j=await res.json();
+            const ans=(j.answer||j.result||'No answer').replace(/\n/g,'<br/>');
+            const rc = replyEl.querySelector('.msg-content'); if(rc) rc.innerHTML = ans; else replyEl.innerHTML = '<div class="msg-content">'+ans+'</div>';
+            replyEl.dataset.lang = lang || replyEl.dataset.lang || document.getElementById('lang-select')?.value;
+          }catch(e){ replyEl.innerHTML='⚠️ Error: Unable to reach server.' }
+
+          currentEdit = null;
+        });
+
+        cancelBtn.addEventListener('click', ()=>{
+          // restore original content and controls
+          const origText = msgEl.dataset.original || '';
+          if(contentDiv) contentDiv.innerHTML = origText.replace(/\n/g,'<br/>');
+          restoreMessageControls(msgEl, origText);
+          currentEdit = null;
+        });
+
+        // focus textarea for immediate edit
+        ta.focus();
+      }catch(e){ console.error(e) }
+    }
+
+    function restoreMessageControls(msgEl, text){
+      const controls = msgEl.querySelector('.msg-controls');
+      controls.innerHTML = '';
+  const copyBtn = createEl('button','control-btn','📋'); copyBtn.title='Copy'; copyBtn.addEventListener('click',()=>{ const cur = msgEl.querySelector('.msg-content')?.innerText || (text||''); copyText(cur, msgEl); }); controls.appendChild(copyBtn);
+      const editBtn = createEl('button','control-btn','✏️'); editBtn.title='Edit'; editBtn.addEventListener('click',()=>beginInlineEdit(msgEl)); controls.appendChild(editBtn);
+    
+
+    }
+
+  </script>
+</body>
+</html>

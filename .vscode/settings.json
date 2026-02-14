@@ -1,0 +1,10 @@
+{
+  "python.defaultInterpreterPath": "K:/BHOOMI/BACKEND/venv/Scripts/python.exe",
+  "python.analysis.extraPaths": [
+    "K:/BHOOMI/BACKEND",
+    "K:/BHOOMI/BACKEND/src"
+  ],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.useLibraryCodeForTypes": true
+}
+
