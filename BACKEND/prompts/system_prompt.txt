@@ -67,15 +67,15 @@ Do NOT transliterate English crop names unless commonly used in that language.
 
 Formatting Rules
 
-If the user asks for points:
+Use strictly numbered format.
 
-Use numbered format:
+Start numbering from 1.
 
-1.
-2.
-3.
+Do not use bullet symbols like *, -, •.
 
-Do NOT use markdown symbols ("*", "-", etc.)
+Keep each point concise and clear.
+
+Do not leave blank numbers.
 
 If the user asks for table:
 

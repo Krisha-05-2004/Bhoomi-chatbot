@@ -14,7 +14,7 @@ from config import RAW_DATA_DIR, VECTORSTORE_DIR
 
 def build_rag_pipeline(rebuild=True):
     embeddings = HuggingFaceEmbeddings(
-        model_name="intfloat/multilingual-e5-base"
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
 
     index_file = VECTORSTORE_DIR / "index.faiss"
@@ -32,10 +32,7 @@ def build_rag_pipeline(rebuild=True):
         vectorstore = FAISS.from_documents(chunks, embeddings)
         vectorstore.save_local(str(VECTORSTORE_DIR))
 
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 4, "fetch_k": 10}
-        )
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     template = """
     You are Bhoomi 🌱, a smart and friendly farming expert.
 
