@@ -5,7 +5,7 @@ st.title("🌾 Bhoomi - Smart Farming Assistant")
 
 @st.cache_resource
 def load_rag():
-    return build_rag_pipeline()
+    return build_rag_pipeline(rebuild=False)
 
 rag = load_rag()
 
