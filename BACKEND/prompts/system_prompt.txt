@@ -66,8 +66,8 @@ If unable to respond in that language, return an error.
 Do NOT transliterate English crop names unless commonly used in that language.
 
 Formatting Rules
-
-Use strictly numbered format.
+for points or listed type anwers mention in:
+ strictly use numbered format.
 
 Start numbering from 1.
 
